@@ -7,18 +7,44 @@ use Psr\Http\Message\ServerRequestInterface as Request;
 
 // 1. Composer Autoloader einbinden
 require __DIR__ . '/../vendor/autoload.php';
-require __DIR__ . '/../src/Application/DotEnv.php';
-require __DIR__ . '/../src/Application/Database.php';
-require __DIR__ . '/../src/Application/Logger.php';
 
 // 2. .env-Datei laden
-Application\DotEnv::initialize();
-Application\Database::initialize();
-Application\Logger::initialize();
+$dotenv = Dotenv\Dotenv::createImmutable(__DIR__ . '/..');
+$dotenv->safeLoad();
+
+$connectionParams = [
+    'dbname'   => $_ENV['DB_NAME'] ?? 'fkapi',
+    'user'     => $_ENV['DB_USER'] ?? 'root',
+    'password' => $_ENV['DB_PASSWORD'] ?? '',
+    'host'     => $_ENV['DB_HOST'] ?? '127.0.0.1',
+    'port'     => $_ENV['DB_PORT'] ?? 3306,
+    'driver'   => $_ENV['DB_DRIVER'] ?? 'pdo_mysql',
+    'charset'  => 'utf8mb4',
+];
+
+$db = \Doctrine\DBAL\DriverManager::getConnection($connectionParams);
+
+// --- NEU: Monolog Logger initialisieren ---
+$logger = new \Monolog\Logger('wlh_api');
+$logFile = __DIR__ . '/../logs/app.log';
+
+// StreamHandler schreibt die Logs in eine physische Datei
+$streamHandler = new \Monolog\Handler\StreamHandler($logFile, \Monolog\Level::Debug);
+
+// Ein sauberes Format für die Logzeilen definieren
+$formatter = new \Monolog\Formatter\LineFormatter(
+    "[%datetime%] %channel%.%level_name%: %message% %context%\n",
+    "Y-m-d H:i:s"
+);
+$streamHandler->setFormatter($formatter);
+$logger->pushHandler($streamHandler);
+// ------------------------------------------
+
 
 
 // 3. PSR-7 Factory für Slim aufsetzen (Nyholm)
-
+$psr17Factory = new Psr17Factory();
+AppFactory::setResponseFactory($psr17Factory);
 
 $app = AppFactory::create();
 
