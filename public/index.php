@@ -2,105 +2,32 @@
 
 use Slim\Factory\AppFactory;
 use Nyholm\Psr7\Factory\Psr17Factory;
-use Psr\Http\Message\ResponseInterface as Response;
-use Psr\Http\Message\ServerRequestInterface as Request;
+use Nyholm\Psr7Server\ServerRequestCreator;
 
 // 1. Composer Autoloader einbinden
 require __DIR__ . '/../vendor/autoload.php';
-require __DIR__ . '/../src/Application/DotEnv.php';
-require __DIR__ . '/../src/Application/Database.php';
-require __DIR__ . '/../src/Application/Logger.php';
 
-// 2. .env-Datei laden
+// 2. Infrastruktur initialisieren
 Application\DotEnv::initialize();
-Application\Database::initialize();
-Application\Logger::initialize();
+$logger = Application\Logger::initialize();
+$db = Application\Database::initialize();
 
-
-// 3. PSR-7 Factory für Slim aufsetzen (Nyholm)
-
-
+// 3. PSR-7 Factory & Slim App aufsetzen
+$psr17Factory = new Psr17Factory();
+AppFactory::setResponseFactory($psr17Factory);
 $app = AppFactory::create();
 
-// 4. Slim-Routing-Middleware hinzufügen (wichtig für die Erkennung von Routen)
-$app->addRoutingMiddleware();
-
-// 5. Fehler-Middleware hinzufügen (Ersetzt Laravels Exception-Handler)
-$displayErrors = filter_var($_ENV['APP_DEBUG'] ?? false, FILTER_VALIDATE_BOOLEAN);
-$errorMiddleware = $app->addErrorMiddleware($displayErrors, true, true,$logger);
-
-// Globaler JSON-Fehler-Handler, falls mal etwas schiefgeht
-if (!$displayErrors) {
-    $errorMiddleware->setDefaultErrorHandler(function (
-        Request $request,
-        Throwable $exception,
-        bool $displayErrorDetails
-    ) use ($app) {
-        $response = $app->getResponseFactory()->createResponse(500);
-        $response->getBody()->write(json_encode([
-            'success' => false,
-            'message' => 'Ein interner Serverfehler ist aufgetreten.'
-        ]));
-        return $response->withHeader('Content-Type', 'application/json');
-    });
-}
-
+// 4. Middleware & Error-Handling registrieren
 $app->addBodyParsingMiddleware();
 $app->addRoutingMiddleware();
-// 6. Eine erste Test-Route definieren
-$app->get('/api/v1/ping', function (Request $request, Response $response) use ($db, $logger) {
-    $controller = new \App\Controllers\PingController($db);
-    return $controller->ping($request, $response);
-});
-$app->post('/api/v1/login', function (Request $request, Response $response) use ($db, $logger) {
-    $controller = new \App\Controllers\AuthController($db, $logger);
-    return $controller->login($request, $response);
-});
-$app->get('/api/v1/setup-user', function (Request $request, Response $response) use ($db, $logger) {
-    // Wir löschen den alten Eintrag, falls vorhanden
-    $db->executeStatement("DELETE FROM users WHERE email = 'test@test.de'");
+Application\ErrorHandler::initialize($app, $logger);
 
-    // PHP generiert den Hash absolut sauber selbst
-    $hashedPassword = password_hash('geheim123', PASSWORD_BCRYPT);
+// 5. Routen einbinden und ausführen
+$routes = require __DIR__ . '/../src/Application/Routes.php';
+$routes($app, $db, $logger);
 
-    // Eintrag in die Datenbank schreiben
-    $db->insert('users', [
-        'name' => 'Test User',
-        'email' => 'test@test.de',
-        'password' => $hashedPassword,
-        'role' => 'admin'
-    ]);
-
-    $response->getBody()->write(json_encode([
-        'success' => true,
-        'message' => 'User wurde direkt über PHP fehlerfrei angelegt.',
-        'generated_hash' => $hashedPassword
-    ]));
-    return $response->withHeader('Content-Type', 'application/json');
-});
-$app->get('/api/v1/user/profile', function (Request $request, Response $response) {
-    // Wir holen uns die Daten, die die Middleware an den Request geheftet hat
-    $user = $request->getAttribute('token_user');
-    $userId = $request->getAttribute('token_user_id');
-
-    $data = [
-        'success' => true,
-        'message' => 'Du hast Zugriff auf diese geschützte Route.',
-        'user_id' => $userId,
-        'user_details' => $user
-    ];
-
-    $response->getBody()->write(json_encode($data));
-    return $response->withHeader('Content-Type', 'application/json');
-})->add(new \App\Middleware\AuthMiddleware());
-
-$app->post('/api/v1/refresh', function (Request $request, Response $response) use ($db, $logger) {
-    $controller = new \App\Controllers\AuthController($db, $logger);
-    return $controller->refresh($request, $response);
-});
-
-// 7. ServerRequest manuell aus den globalen PHP-Variablen erstellen
-$creator = new \Nyholm\Psr7Server\ServerRequestCreator(
+// 6. ServerRequest erstellen und App starten
+$creator = new ServerRequestCreator(
     $psr17Factory, // ServerRequestFactory
     $psr17Factory, // UriFactory
     $psr17Factory, // UploadedFileFactory
@@ -108,6 +35,4 @@ $creator = new \Nyholm\Psr7Server\ServerRequestCreator(
 );
 
 $request = $creator->fromGlobals();
-
-// 8. App mit dem erstellten Request starten
 $app->run($request);

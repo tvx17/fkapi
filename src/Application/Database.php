@@ -2,11 +2,14 @@
 
 namespace Application;
 
+use Doctrine\DBAL\Connection;
+use Doctrine\DBAL\DriverManager;
+
 abstract class Database
 {
-    public static \Doctrine\DBAL\Connection $db;
+    public static Connection $db;
     
-    function initialize()
+    public static function initialize(): Connection
     {
         $connectionParams = [
             'dbname'   => $_ENV['DB_NAME'] ?? 'fkapi',
@@ -18,6 +21,7 @@ abstract class Database
             'charset'  => 'utf8mb4',
         ];
 
-        self::$db = \Doctrine\DBAL\DriverManager::getConnection($connectionParams);
+        self::$db = DriverManager::getConnection($connectionParams);
+        return self::$db;
     }
 }

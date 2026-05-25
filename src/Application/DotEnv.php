@@ -2,13 +2,13 @@
 
 namespace Application;
 
+use Dotenv\Dotenv as PhpDotenv;
+
 abstract class DotEnv 
 {
-    public static $DotEntv;
-
-    public static function initialize()
+    public static function initialize(): void
     {
-        $dotenv = \Dotenv\Dotenv::createImmutable(__DIR__ . '/../../');
-        $dotenv->load();
+        $dotenv = PhpDotenv::createImmutable(__DIR__ . '/../../');
+        $dotenv->safeLoad();
     }
 }
