@@ -1,6 +1,6 @@
 <?php
 
-namespace Application;
+namespace App\Application;
 
 use Slim\App;
 use Psr\Log\LoggerInterface;

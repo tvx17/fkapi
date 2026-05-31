@@ -2,9 +2,7 @@
     "name": "tvx17/fkapi",
     "autoload": {
         "psr-4": {
-            "App\\":"src/",
-            "Application\\": "src/Application/"
-            
+            "App\\":"src/"            
         }
     },
     "authors": [

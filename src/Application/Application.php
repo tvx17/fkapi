@@ -1,6 +1,11 @@
 <?php
 
-namespace Application;
+namespace App\Application;
+
+use Psr\Http\Message\ResponseInterface as Response;
+use Nyholm\Psr7\Factory\Psr17Factory;
+use Slim\Factory\AppFactory;
+
 
 abstract class Application
 {
@@ -12,6 +17,12 @@ abstract class Application
     {
         self::initPsr17Factory();
         self::initApp();
+    }
+
+    private function jsonResponse(Response $response, array $data, int $status = 200): Response
+    {
+        $response->getBody()->write(json_encode($data));
+        return $response->withHeader('Content-Type', 'application/json')->withStatus($status);
     }
 
     private static function initApp()
@@ -26,4 +37,6 @@ abstract class Application
         self::$psr17Factory = new Psr17Factory();
         AppFactory::setResponseFactory(self::$psr17Factory);
     }
+
+
 }

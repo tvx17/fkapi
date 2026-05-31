@@ -1,0 +1,19 @@
+doc_documents (table name)
+- schema-version (integer) -OK
+- document_version (integer) -OK
+- document_type (string) -OK -> doc_types
+- document_subtype (string) -OK -> doc_subtypes
+- lifecycle_status (Reference to doc_lifecycle_status, integer) -OK
+- review_status (Reference to doc_review_status, integer)
+- text_source(string) -OK
+- text_has_text (boolean) -OK
+- text_content_hash (string) -OK
+- created_at (date_time) -OK
+- updated_at (date_time) -OK
+- imported_from (string) -OK
+- dates -OK -> LinkTable doc_links_dates
+- issuer -OK -> LinkTable doc_links_issuer
+- parties -OK -> 
+- tags -OK -> LinkTable doc_links_tags
+- files -OK -> LinkTable doc_links_files
+- attributes -OK -> LinkTable doc_links_attributes
