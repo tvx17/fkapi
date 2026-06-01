@@ -108,7 +108,7 @@ class UserController
             'refresh_token' => $refreshToken, // Wird an die PWA übergeben
             'token_type' => 'Bearer',
             'role' => $user['role'],
-            'expirese' => $expire - $issuedAt
+            'expire' => $expire - $issuedAt
         ]);
     }
     public function getRole(Request $request, Response $response): Response

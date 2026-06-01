@@ -26,49 +26,50 @@ return function (App $app, Connection $db, LoggerInterface $logger) {
             });
             // -------------> 3 - Documents
             $group->group('/documents', function (RouteCollectorProxy $group) use ($db, $logger) {
-                 $group->get('/findNew', function (Request $request, Response $response) use ($db,$logger) {
+                $group->get('/findNew', function (Request $request, Response $response) use ($db, $logger) {
                     $controller = new DocumentController($db, $logger);
                     return $controller->findNew($request, $response);
                 });
             });
             // -------------> 3 - User
             $group->group('/user', function (RouteCollectorProxy $group) use ($db, $logger) {
-                $controller = new UserController($db, $logger);                
-                /*$group->post('/logout', function (Request $request, Response $response) use ($controller) {
-                    return $controller->logout($request, $response);
-                })->add(new AuthMiddleware());*/
-                /*$group->get('/me', function (Request $request, Response $response) use ($controller) {                    
-                    return $controller->me($request, $response);
-                })->add(new AuthMiddleware());*/
-                /*$group->get('delete', function (Request $request, Response $response) use ($controller) {                    
-                    return $controller->delete($request, $response);
-                })->add(new AuthMiddleware());*/
-                $group->get('/profile', function (Request $request, Response $response) {
-                    $user = $request->getAttribute('token_user');
-                    $userId = $request->getAttribute('token_user_id');
+                $controller = new UserController($db, $logger);
 
-                    $data = [
-                        'success' => true,
-                        'message' => 'Du hast Zugriff auf diese geschützte Route.',
-                        'user_id' => $userId,
-                        'user_details' => $user
-                    ];
-
-                    $response->getBody()->write(json_encode($data));
-                    return $response->withHeader('Content-Type', 'application/json');
-                })->add(new AuthMiddleware());
-                $group->get('/role', function (Request $request, Response $response)use ($controller) {
-                    $controller->getRole($request, $response);
-
-                    $response->getBody()->write(json_encode($data));
-                    return $response->withHeader('Content-Type', 'application/json');
-                })->add(new AuthMiddleware());
-                $group->get('/refresh', function (Request $request, Response $response) use ($controller) {                    
-                    return $controller->refresh($request, $response);
-                });
-                $group->post('/login', function (Request $request, Response $response) use ($controller) {                    
+                // WICHTIG: login und refresh müssen OHNE AuthMiddleware erreichbar sein,
+                // aber sie liegen HIER innerhalb der /user Gruppe.
+                $group->post('/login', function (Request $request, Response $response) use ($controller) {
                     return $controller->login($request, $response);
                 });
+
+                $group->get('/refresh', function (Request $request, Response $response) use ($controller) {
+                    return $controller->refresh($request, $response);
+                });
+
+                // Diese Routen sind geschützt und ERWARTEN das Token im Header
+                $group->group('', function (RouteCollectorProxy $authenticatedGroup) use ($controller) {
+
+                    $authenticatedGroup->get('/profile', function (Request $request, Response $response) {
+                        $user = $request->getAttribute('token_user');
+                        $userId = $request->getAttribute('token_user_id');
+
+                        $data = [
+                            'success' => true,
+                            'message' => 'Du hast Zugriff auf diese geschützte Route.',
+                            'user_id' => $userId,
+                            'user_details' => $user
+                        ];
+
+                        $response->getBody()->write(json_encode($data));
+                        return $response->withHeader('Content-Type', 'application/json');
+                    });
+
+                    $authenticatedGroup->get('/getRole', function (Request $request, Response $response) use ($controller) {
+                        // HIER MIT RETURN!
+                        return $controller->getRole($request, $response);
+                    });
+
+                })->add(new \App\Middleware\AuthMiddleware()); // Schützt nur Profil und Rolle!
+
             });
             // -------------> 3 - Admin
             $group->group('/admin', function (RouteCollectorProxy $group) use ($db, $logger) { });
@@ -77,7 +78,7 @@ return function (App $app, Connection $db, LoggerInterface $logger) {
 
 
     // 2. Setup-User Route
-    $app->get('/api/v1/setup-user', function (Request $request, Response $response) use ($db) {
+    /*$app->get('/api/v1/setup-user', function (Request $request, Response $response) use ($db) {
         $db->executeStatement("DELETE FROM users WHERE email = 'test@test.de'");
         $hashedPassword = password_hash('geheim123', PASSWORD_BCRYPT);
         $db->insert('users', [
@@ -93,7 +94,7 @@ return function (App $app, Connection $db, LoggerInterface $logger) {
             'generated_hash' => $hashedPassword
         ]));
         return $response->withHeader('Content-Type', 'application/json');
-    });
+    });*/
 
 
 };

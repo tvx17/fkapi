@@ -24,16 +24,22 @@ class AuthMiddleware
 
         try {
             // 2. Token verifizieren
+            // TEST: Ersetze das temporär mit deinem echten Secret aus der .env,
+            // um zu prüfen, ob $_ENV hier leer ist.
             $secretKey = $_ENV['JWT_SECRET'] ?? 'fallback_secret';
+
+            // Wenn du absolut sichergehen willst, dass es nicht am Fallback liegt, 
+            // trag hier testweise denselben String ein, der in deiner .env steht:
+            // $secretKey = 'DEIN_ECHTES_SECRET_AUS_DER_ENV';
+
             $decoded = JWT::decode($jwt, new Key($secretKey, 'HS256'));
 
             // 3. Benutzerdaten an den Request anhängen
-            $request = $request->withAttribute('token_user', (array)$decoded->user);
+            $request = $request->withAttribute('token_user', (array) $decoded->user);
             $request = $request->withAttribute('token_user_id', $decoded->sub);
 
             // Anfrage weiterreichen
             return $handler->handle($request);
-
         } catch (\Firebase\JWT\ExpiredException $e) {
             return $this->unauthorizedResponse('Das Token ist abgelaufen.');
         } catch (\Exception $e) {
@@ -45,12 +51,12 @@ class AuthMiddleware
     {
         // Nutzt die installierte Nyholm-Response statt der fehlenden Slim-Response
         $response = new \Nyholm\Psr7\Response();
-        
+
         $response->getBody()->write(json_encode([
             'success' => false,
             'message' => $message
         ]));
-        
+
         return $response
             ->withHeader('Content-Type', 'application/json')
             ->withStatus(401);
