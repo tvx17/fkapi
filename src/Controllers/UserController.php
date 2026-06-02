@@ -21,13 +21,21 @@ class UserController
         $this->logger = $logger;
     }
 
+    public function get(Request $request, Response $response): Response
+    {       
+        if (!$request->getQueryParams('id')) {
+            return $this->jsonResponse($response, ['success' => false, 'message' => 'Benutzer-ID erforderlich.'], 400);
+        }
+
+        $userId = $request->getQueryParams('id');
+    }
 
     public function register(Request $request, Response $response): Response
     {
         $body = $request->getParsedBody();
         $email = $body['email'] ?? '';
         $password = $body['password'] ?? '';
-        $role = $body['role'] ?? 'user'; 
+        $role = $body['role'] ?? 'user';
 
         if (empty($email) || empty($password)) {
             return $this->jsonResponse($response, ['success' => false, 'message' => 'E-Mail und Passwort erforderlich.'], 400);
@@ -37,7 +45,7 @@ class UserController
         $hashedPassword = password_hash($password, PASSWORD_BCRYPT);
 
         $this->db->insert('users', [
-            'name' => $email, 
+            'name' => $email,
             'email' => $email,
             'password' => $hashedPassword,
             'role' => $role
@@ -100,16 +108,23 @@ class UserController
             'token' => $refreshToken,
             'expires_at' => $refreshTokenExpiry
         ]);
-        
+
         return $this->jsonResponse($response, [
             'success' => true,
-            'message' => 'Anmeldung erfolgreich.',
             'access_token' => $accessToken,
-            'refresh_token' => $refreshToken, // Wird an die PWA übergeben
             'token_type' => 'Bearer',
             'role' => $user['role'],
             'expire' => $expire - $issuedAt
-        ]);
+        ])
+            ->withHeader(
+                'Set-Cookie',
+                'refresh_token=' . $refreshToken . '; ' .
+                'Expires=' . gmdate('D, d M Y H:i:s \G\M\T', strtotime('+30 days')) . '; ' .
+                'Path=/api/v1/user/refresh; ' . // WICHTIG: Cookie wird NUR an die Refresh-Route gesendet
+                'Secure; ' .                    // Nur über HTTPS erlauben
+                'HttpOnly; ' .                  // Schützt vor XSS (Skripte können es nicht lesen)
+                'SameSite=Strict'               // Schützt vor CSRF-Angriffen
+            );
     }
     public function getRole(Request $request, Response $response): Response
     {
@@ -126,8 +141,8 @@ class UserController
 
     public function refresh(Request $request, Response $response): Response
     {
-        $body = $request->getParsedBody();
-        $providedRefreshToken = $body['refresh_token'] ?? '';
+        $cookies = $request->getCookieParams();
+        $providedRefreshToken = $cookies['refresh_token'] ?? '';
 
         if (empty($providedRefreshToken)) {
             return $this->jsonResponse($response, ['success' => false, 'message' => 'Refresh-Token erforderlich.'], 400);
@@ -186,7 +201,8 @@ class UserController
             'access_token' => $newAccessToken,
             'refresh_token' => $newRefreshToken,
             'token_type' => 'Bearer',
-            'expirese' => $expire - $issuedAt
+            'role' => $tokenData['role'], // <-- HIER DIE ROLLE MITGEBEN!
+            'expire' => $expire - $issuedAt
         ]);
     }
     private function jsonResponse(Response $response, array $data, int $status = 200): Response

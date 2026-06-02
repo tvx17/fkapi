@@ -12,7 +12,21 @@ use Slim\App;
 use Slim\Routing\RouteCollectorProxy;
 
 return function (App $app, Connection $db, LoggerInterface $logger) {
+    /*$app->add(function ($request, $handler) use ($logger) {
+        $uri = $request->getUri()->getPath();
+        $method = $request->getMethod();
+        $debugTarget = $method . ' ' . $uri;
+        $cookies = $request->getCookieParams();
+        $debugCookies = $cookies;
+        if (empty($cookies)) {
+            $logger->info("{$method} {$uri} -> KEINE Cookies im Request vorhanden.");
+        } else {
+            $logger->info("{$method} {$uri} -> Vorhandene Cookies: " . json_encode($cookies));
+        }
+        $logger->info("Eingehender Request: {$method} {$uri}");
 
+        return $handler->handle($request);
+    });*/
     // -----> 1 - API
     $app->group('/api', function (RouteCollectorProxy $group) use ($db, $logger) {
         // -------------> 2 - Versionierung
@@ -35,8 +49,6 @@ return function (App $app, Connection $db, LoggerInterface $logger) {
             $group->group('/user', function (RouteCollectorProxy $group) use ($db, $logger) {
                 $controller = new UserController($db, $logger);
 
-                // WICHTIG: login und refresh müssen OHNE AuthMiddleware erreichbar sein,
-                // aber sie liegen HIER innerhalb der /user Gruppe.
                 $group->post('/login', function (Request $request, Response $response) use ($controller) {
                     return $controller->login($request, $response);
                 });
@@ -62,9 +74,10 @@ return function (App $app, Connection $db, LoggerInterface $logger) {
                         $response->getBody()->write(json_encode($data));
                         return $response->withHeader('Content-Type', 'application/json');
                     });
-
+                    $authenticatedGroup->get('/get', function (Request $request, Response $response) use ($controller) {
+                        return $controller->get($request, $response);
+                    });
                     $authenticatedGroup->get('/getRole', function (Request $request, Response $response) use ($controller) {
-                        // HIER MIT RETURN!
                         return $controller->getRole($request, $response);
                     });
 
