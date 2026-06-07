@@ -1,18 +1,17 @@
 <?php
 
-namespace App\Application;
+namespace App\Helper;
 
 use Slim\App;
-use Psr\Log\LoggerInterface;
 use Psr\Http\Message\ServerRequestInterface as Request;
 use Throwable;
 
 abstract class ErrorHandler
 {
-    public static function initialize(App $app, LoggerInterface $logger): void
+    public static function initialize(): void
     {
         $displayErrors = filter_var($_ENV['APP_DEBUG'] ?? false, FILTER_VALIDATE_BOOLEAN);
-        $errorMiddleware = $app->addErrorMiddleware($displayErrors, true, true, $logger);
+        $errorMiddleware =  $app->addErrorMiddleware($displayErrors, true, true, \App\Application\Logger::$logger);
 
         if (!$displayErrors) {
             $errorMiddleware->setDefaultErrorHandler(function (

@@ -2,32 +2,80 @@
 
 namespace App\Controllers;
 
-use Doctrine\DBAL\Connection;
 use Firebase\JWT\JWT;
-use Psr\Log\LoggerInterface; // NEU
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 
-
-class UserController
+class ControllerUser
 {
-    private Connection $db;
-    private LoggerInterface $logger; // NEU
 
     // Logger im Konstruktor aufnehmen
-    public function __construct(Connection $db, LoggerInterface $logger)
+    public function __construct()
     {
-        $this->db = $db;
-        $this->logger = $logger;
     }
 
+    private function _getUsers($userId = null) {
+        $qb = \App\Application\Database::$db->createQueryBuilder();
+        $qb->select('id', 'name', 'email', 'role','created_at','updated_at','active')
+            ->from('users');
+
+        if ($userId) {
+            $qb->where('id = :id')
+                ->setParameter('id', $userId);
+        }
+
+        return $qb->fetchAllAssociative();
+    }
+    
     public function get(Request $request, Response $response): Response
-    {       
+    {
         if (!$request->getQueryParams('id')) {
+            return $this->jsonResponse($response, ['success' => true, 'data' => $this->_getUsers()]);
+        } else {
+            return $this->jsonResponse($response, ['success' => true, 'data' => $this->_getUsers($request->getQueryParams('id'))]);
+        }
+
+    }
+
+    function create(Request $request, Response $response): Response
+    {
+        $body = $request->getParsedBody();
+        $name = $body['name'] ?? '';
+        $email = $body['email'] ?? '';
+        $password = $body['password'] ?? '';
+        $role = $body['role'] ?? 'user';
+
+        if (empty($email) || empty($password)) {
+            return $this->jsonResponse($response, ['success' => false, 'message' => 'E-Mail und Passwort erforderlich.'], 400);
+        }
+
+        $qb = \App\Application\Database::$db->createQueryBuilder();
+        $hashedPassword = password_hash($password, PASSWORD_BCRYPT);
+
+        \App\Application\Database::$db->insert('users', [
+            'name' => $name,
+            'email' => $email,
+            'password' => $hashedPassword,
+            'role' => $role
+        ]);
+
+        return $this->jsonResponse($response, ['success' => true, 'message' => 'Benutzer erfolgreich erstellt.']);
+    }
+    public function delete(Request $request, Response $response): Response
+    {
+        $body = $request->getParsedBody();
+        $userId = $body['id'] ?? null;
+
+        if (!$userId) {
             return $this->jsonResponse($response, ['success' => false, 'message' => 'Benutzer-ID erforderlich.'], 400);
         }
 
-        $userId = $request->getQueryParams('id');
+        $qb = \App\Application\Database::$db->createQueryBuilder();
+        \App\Application\Database::$db->update('users', ['active' => 0], ['id' => $userId]);
+
+         \App\Application\Logger::$logger->info("Benutzer mit ID {id} wurde gelöscht.", ['id' => $userId]);
+
+        return $this->jsonResponse($response, ['success' => true, 'message' => 'Benutzer erfolgreich gelöscht.']);
     }
 
     public function register(Request $request, Response $response): Response
@@ -41,17 +89,17 @@ class UserController
             return $this->jsonResponse($response, ['success' => false, 'message' => 'E-Mail und Passwort erforderlich.'], 400);
         }
 
-        $qb = $this->db->createQueryBuilder();
+        $qb = \App\Application\Database::$db->createQueryBuilder();
         $hashedPassword = password_hash($password, PASSWORD_BCRYPT);
 
-        $this->db->insert('users', [
+        \App\Application\Database::$db->insert('users', [
             'name' => $email,
             'email' => $email,
             'password' => $hashedPassword,
             'role' => $role
         ]);
 
-        $this->logger->info("Neuer Benutzer registriert: {email} (ID: {id})", ['email' => $email, 'id' => $this->db->lastInsertId()]);
+        \App\Application\Logger::$logger->info("Neuer Benutzer registriert: {email} (ID: {id})", ['email' => $email, 'id' => \App\Application\Database::$db->lastInsertId()]);
 
         return $this->jsonResponse($response, ['success' => true, 'message' => 'Benutzer erfolgreich registriert.']);
     }
@@ -65,7 +113,7 @@ class UserController
             return $this->jsonResponse($response, ['success' => false, 'message' => 'E-Mail und Passwort erforderlich.'], 400);
         }
 
-        $qb = $this->db->createQueryBuilder();
+        $qb = \App\Application\Database::$db->createQueryBuilder();
         $user = $qb->select('*')
             ->from('users')
             ->where('email = :email')
@@ -73,11 +121,11 @@ class UserController
             ->fetchAssociative();
 
         if (!$user || !password_verify($password, $user['password'])) {
-            $this->logger->warning("Fehlgeschlagener Login-Versuch für E-Mail: {email}", ['email' => $email]);
+            \App\Application\Logger::$logger->warning("Fehlgeschlagener Login-Versuch für E-Mail: {email}", ['email' => $email]);
             return $this->jsonResponse($response, ['success' => false, 'message' => 'Ungültige Zugangsdaten.'], 401);
         }
 
-        $this->logger->info("Benutzer erfolgreich angemeldet: {email} (ID: {id})", ['email' => $email, 'id' => $user['id']]);
+        \App\Application\Logger::$logger->info("Benutzer erfolgreich angemeldet: {email} (ID: {id})", ['email' => $email, 'id' => $user['id']]);
 
         // 1. JWT Access-Token generieren
         $secretKey = $_ENV['JWT_SECRET'] ?? 'fallback_secret';
@@ -103,7 +151,7 @@ class UserController
         $refreshTokenExpiry = date('Y-m-d H:i:s', strtotime('+30 days'));
 
         // 3. Refresh-Token in der DB speichern
-        $this->db->insert('refresh_tokens', [
+        \App\Application\Database::$db->insert('refresh_tokens', [
             'user_id' => $user['id'],
             'token' => $refreshToken,
             'expires_at' => $refreshTokenExpiry
@@ -149,7 +197,7 @@ class UserController
         }
 
         // 1. Token in der Datenbank suchen
-        $qb = $this->db->createQueryBuilder();
+        $qb = \App\Application\Database::$db->createQueryBuilder();
         $tokenData = $qb->select('rt.*', 'u.name', 'u.email', 'u.role')
             ->from('refresh_tokens', 'rt')
             ->join('rt', 'users', 'u', 'rt.user_id = u.id')
@@ -159,12 +207,12 @@ class UserController
 
         // 2. Validieren: Existiert es und ist es noch nicht abgelaufen?
         if (!$tokenData || strtotime($tokenData['expires_at']) < time()) {
-            $this->logger->warning("Ungültiges oder abgelaufenes Refresh-Token verwendet.");
+            \App\Application\Logger::$logger->warning("Ungültiges oder abgelaufenes Refresh-Token verwendet.");
             return $this->jsonResponse($response, ['success' => false, 'message' => 'Ungültiges oder abgelaufenes Refresh-Token.'], 401);
         }
 
         // 3. Altes Refresh-Token löschen (Einmal-Nutzung / Token Rotation für maximale Sicherheit)
-        $this->db->delete('refresh_tokens', ['id' => $tokenData['id']]);
+        \App\Application\Database::$db->delete('refresh_tokens', ['id' => $tokenData['id']]);
 
         // 4. Neues Access-Token generieren
         $secretKey = $_ENV['JWT_SECRET'] ?? 'fallback_secret';
@@ -188,22 +236,30 @@ class UserController
         $newRefreshToken = bin2hex(random_bytes(40));
         $newRefreshTokenExpiry = date('Y-m-d H:i:s', strtotime('+30 days'));
 
-        $this->db->insert('refresh_tokens', [
+        \App\Application\Database::$db->insert('refresh_tokens', [
             'user_id' => $tokenData['user_id'],
             'token' => $newRefreshToken,
             'expires_at' => $newRefreshTokenExpiry
         ]);
 
-        $this->logger->info("Access-Token erfolgreich über Refresh-Token erneuert. User-ID: {id}", ['id' => $tokenData['user_id']]);
+        \App\Application\Logger::$logger->info("Access-Token erfolgreich über Refresh-Token erneuert. User-ID: {id}", ['id' => $tokenData['user_id']]);
 
         return $this->jsonResponse($response, [
             'success' => true,
             'access_token' => $newAccessToken,
-            'refresh_token' => $newRefreshToken,
             'token_type' => 'Bearer',
-            'role' => $tokenData['role'], // <-- HIER DIE ROLLE MITGEBEN!
+            'role' => $tokenData['role'],
             'expire' => $expire - $issuedAt
-        ]);
+        ])
+            ->withHeader(
+                'Set-Cookie',
+                'refresh_token=' . $newRefreshToken . '; ' .
+                'Expires=' . gmdate('D, d M Y H:i:s \G\M\T', strtotime('+30 days')) . '; ' .
+                'Path=/api/v1/user/refresh; ' .
+                'Secure; ' .
+                'HttpOnly; ' .
+                'SameSite=Strict'
+            );
     }
     private function jsonResponse(Response $response, array $data, int $status = 200): Response
     {
