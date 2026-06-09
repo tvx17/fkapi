@@ -4,8 +4,7 @@ namespace App;
 
 use Psr\Http\Message\ResponseInterface as Response;
 
-abstract class Api {
-{
+class Api {
 
     public static \Nyholm\Psr7\Factory\Psr17Factory $psr17Factory;
     public static \Slim\App $app;
@@ -38,7 +37,7 @@ abstract class Api {
     }
     
     public static function errorHandling() {
-        \App\Application\ErrorHandler::initialize(self::$app);
+        \App\Application\ErrorHandler::initialize();
     }
     public static function cors() {
         self::$app->add(function (\Psr\Http\Message\ServerRequestInterface $request, $handler) {
@@ -72,7 +71,7 @@ abstract class Api {
 
         return $creator->fromGlobals();
     }
-    public function jsonResponse(Response $response, array $data, int $status = 200): Response
+    public static function jsonResponse(Response $response, array $data, int $status = 200): Response
     {
         $response->getBody()->write(json_encode($data));
         return $response->withHeader('Content-Type', 'application/json')->withStatus($status);
