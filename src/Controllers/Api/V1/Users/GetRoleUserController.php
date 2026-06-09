@@ -1,6 +1,6 @@
  <?php
 
-namespace App\Controllers\Users;
+namespace App\Controllers\Api\V1\Users;
 
 class GetRoleUsersController
 {    

@@ -9,6 +9,10 @@ abstract class ErrorHandler
     public static function initialize(): void
     {
         $displayErrors = filter_var($_ENV['APP_DEBUG'] ?? false, FILTER_VALIDATE_BOOLEAN);
+
+
+        $displayErrors = true;
+
         $errorMiddleware = \App\Api::$app->addErrorMiddleware($displayErrors, true, true, \App\Application\Logger::$logger);
 
         if (!$displayErrors) {

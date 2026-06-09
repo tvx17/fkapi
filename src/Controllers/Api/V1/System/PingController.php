@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Controllers\System;
+namespace App\Controllers\Api\V1\System;
 
 class PingController
 {    
@@ -24,6 +24,6 @@ class PingController
             ];
         }
 
-        \App\Api::jsonResponse($response,$data);        
+        return \App\Api::jsonResponse($response,$data);
     }     
 }

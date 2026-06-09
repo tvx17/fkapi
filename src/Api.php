@@ -14,10 +14,13 @@ class Api {
         self::infrastructure();
         self::initPsr17Factory();
         self::$app = \Slim\Factory\AppFactory::create();
-        self::initMiddleware();
-        self::initMiddleware();
+        
+        self::initMiddleware(); 
+            
+        self::errorHandling();
+    
+        //self::preflightRequestsRoute();
         self::cors();
-        self::preflightRequestsRoute();
     }
 
     private static function infrastructure() {
