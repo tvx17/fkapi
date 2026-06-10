@@ -1,4 +1,5 @@
 <?php
+//ob_start();
 
 error_reporting(E_ALL);
 ini_set('display_errors', '1');
@@ -12,5 +13,9 @@ require __DIR__ . '/../vendor/autoload.php';
 include \App\Application\Configuration::$app_base_path . '\Routes\Api.php';
 
 $request = \App\Api::createRequest();
+
+//if (ob_get_length() > 0) {
+//    ob_clean(); 
+//}
 
 \App\Api::$app->run($request);

@@ -7,8 +7,13 @@ class AddDocumentController
     public static function register(\Psr\Http\Message\ServerRequestInterface $request, \Psr\Http\Message\ResponseInterface $response, array $args): \Psr\Http\Message\ResponseInterface
     {
         $requestBody = $request->getParsedBody();
+    
+        if (empty($requestBody) && $request->getHeaderLine('Content-Type') === 'application/json') {
+            $requestBody = json_decode((string)$request->getBody(), true);
+        }
+
         $documents = [];
-        if ($requestBody['document']) {
+        if (isset($requestBody['document'])) {
             array_push($documents, $requestBody['document']);
         } else {
             $documents = $requestBody['documents'] ?? [];
