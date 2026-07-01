@@ -3,6 +3,7 @@
 namespace App;
 
 use Psr\Http\Message\ResponseInterface as Response;
+use Nyholm\Psr7\Stream;
 
 class Api
 {
@@ -11,22 +12,18 @@ class Api
     public static \Slim\App $app;
 
     public static function initialize()
-    {
-        self::infrastructure();
-        self::initPsr17Factory();
-        self::$app = \Slim\Factory\AppFactory::create();
+{
+    self::infrastructure();
+    self::initPsr17Factory();
+    self::$app = \Slim\Factory\AppFactory::create();
     
-        // Middlewares werden von unten nach oben abgearbeitet:
-    
-        self::errorHandling();
-        self::cors();
-    
-        // Routing-Middleware hinzufügen
-        self::$app->addRoutingMiddleware();
-    
-        // BodyParsing ganz unten hinzufügen, damit es als ALLERERSTES ausgeführt wird
-        self::$app->addBodyParsingMiddleware();
-    }
+    self::$app->addBodyParsingMiddleware();
+    self::$app->addRoutingMiddleware();
+        
+    self::errorHandling();
+
+    self::cors();
+}
 
     private static function infrastructure()
     {
@@ -44,22 +41,21 @@ class Api
     {
         \App\Application\ErrorHandler::initialize();
     }
-    public static function cors()
-    {
-        self::$app->add(function (\Psr\Http\Message\ServerRequestInterface $request, $handler) {
-            if ($request->getMethod() === 'OPTIONS') {
-                $response = self::$app->getResponseFactory()->createResponse(200);
-            } else {
-                $response = $handler->handle($request);
-            }
-
-            return $response
-                ->withHeader('Access-Control-Allow-Origin', 'http://localhost:9200')
-                ->withHeader('Access-Control-Allow-Headers', 'X-Requested-With, Content-Type, Accept, Origin, Authorization')
-                ->withHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS')
-                ->withHeader('Access-Control-Allow-Credentials', 'true');
-        });
-    }
+    public static function cors() {
+    self::$app->add(function (\Psr\Http\Message\ServerRequestInterface $request, $handler) {
+        if ($request->getMethod() === 'OPTIONS') {
+            $response = self::$app->getResponseFactory()->createResponse(200);
+        } else {
+            $response = $handler->handle($request);
+        }
+        
+        return $response
+            ->withHeader('Access-Control-Allow-Origin', 'http://localhost:9200')
+            ->withHeader('Access-Control-Allow-Headers', 'X-Requested-With, Content-Type, Accept, Origin, Authorization')
+            ->withHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS')
+            ->withHeader('Access-Control-Allow-Credentials', 'true');
+    });
+}
 
     public static function preflightRequestsRoute()
     {
@@ -84,9 +80,17 @@ class Api
         $response->getBody()->write(json_encode($data));
         return $response->withHeader('Content-Type', 'application/json')->withStatus($status);
     }
+    public static function pdfResponse(Response $response, string $filePath): Response
+    {
+        $fh = fopen($filePath, 'rb');
+        
+        $stream = Stream::create($fh);
 
-
-
-
-
+        return $response
+            ->withBody($stream)
+            ->withHeader('Content-Type', 'application/pdf')
+            ->withHeader('Content-Disposition', 'inline; filename="' . basename($filePath) . '"')
+            ->withHeader('Content-Length', (string)filesize($filePath))
+            ->withStatus(200);
+    }
 }

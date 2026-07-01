@@ -4,6 +4,10 @@ namespace App\Controllers\Api\V1\Documents;
 
 class AddDocumentController
 {
+    private static array $data;
+    private static string $internalType = 'Documents';
+
+
     public static function register(\Psr\Http\Message\ServerRequestInterface $request, \Psr\Http\Message\ResponseInterface $response, array $args): \Psr\Http\Message\ResponseInterface
     {
         $requestBody = $request->getParsedBody();
@@ -21,9 +25,10 @@ class AddDocumentController
 
         $returnData = [];
         foreach ($documents as $document) {
-            \App\Application\Logger::$logger->info('Received document for addition: ' . json_encode($document));
-            //$returnData[$document] = self::add($document);
-            $returnData[$document] = (rand(0, 1) === 0) ? 'Error' : 'Success';
+            \App\Application\Logger::$logger->info('Received document for addition: ' . json_encode($document['path']));
+            $returnData[$document['index']] = self::add($document['path']);
+            //$statusOptionen = ["Failed", "Success"];
+            //$returnData[$document['index']] = $statusOptionen[rand(0, 1)];
         }
         $data = [
             'success' => true,
@@ -42,68 +47,72 @@ class AddDocumentController
             $normalizedFile = self::normalizeFile($document);
 
             if (!file_exists($normalizedFile)) {
-                \App\Application\Logger::$logger->error("Datei nicht gefunden: " . $normalizedFile);
-                $data = [
-                    'success' => false,
-                    'message' => 'Datei nicht gefunden: ' . $document
-                ];
-                $_result .= 'File not found';
+                \App\Application\Logger::$logger->error("Datei nicht gefunden: " . $normalizedFile);                
+                $_result .= 'Error';                                
             } else {
 
-                $data = \App\Application\Helper::getJsonData($normalizedFile);
-                if (self::readyForProcessing($data['lifecycle_status'])) {
+                self::$data = \App\Helper\ReadWrite::readJsonData($normalizedFile);
+                if (self::readyForProcessing(self::$data['lifecycle_status'])) {
                     
-                    $result = self::processFile($normalizedFile, $data['title'], $data['files'][0]['filename'], $data['files'][0]['path'], $data['files'][0]['mime_type']);
+                    $result = self::processFile($normalizedFile);
                     if ($result['type'] === 'exists') {
                         $_result .= $result['message'];
                         return $_result;
                     } else {
-                        $data['file_id'] = $result['id'];
+                        self::$data['file_id'] = $result['id'];
                     }
 
+                    $internalTypeId = \App\Helper\System::getInternalTypeId(self::$internalType);
 
-                    // Dokumententyp-ID ermitteln oder anlegen =======================================
-                    $data['document_type_id'] = self::getSetWithId('doc_types', $data['document_type']);
-                    // Dokumenten-Subtyp-ID ermitteln oder anlegen =======================================
-                    $data['document_subtype_id'] = self::getSetWithId('doc_types', $data['document_subtype']);
-                    // Lifecycle-Status-ID ermitteln ======================================
-                    $data['lifecycle_status_id'] = self::getSetWithId('doc_lifecycle_statuses', 'imported');
-                    // Review-Status-ID ermitteln ======================================
-                    $data['review_status_id'] = self::getSetWithId('doc_review_statuses', $data['review_status']);
-                    // Text Source-ID ermitteln ======================================
-                    $data['text_source_id'] = self::getSetWithId('doc_text_sources', $data['text']['source']);
+                    self::$data['document_type_id'] = \App\Helper\Database::getSetWithId('misc_types', self::$data['document_type'],$internalTypeId);
+                    self::$data['document_subtype_id'] = \App\Helper\Database::getSetWithId('misc_types', self::$data['document_subtype'],$internalTypeId);
+                    self::$data['lifecycle_status_id'] = \App\Helper\Database::getSetWithId('misc_lifecycle_statuses', 'imported',$internalTypeId);
+                    self::$data['review_status_id'] = \App\Helper\Database::getSetWithId('misc_review_statuses', self::$data['review_status'],$internalTypeId);
+                    self::$data['text_source_id'] = \App\Helper\Database::getSetWithId('misc_text_sources', self::$data['text']['source'],$internalTypeId);
+                    self::$data['text_category_id'] = \App\Helper\Database::getSetWithId('misc_categories', self::$data['category'],$internalTypeId);
+                    
+                    $docId = self::createDocument();
 
-                    $docId = self::createDocument($data);
+                    self::dates($docId,$internalTypeId);
 
-                    self::dates($data['dates'], $docId);
+                    self::issuer($docId);
 
-                    self::issuer($data['issuer']['name'], $docId);
+                    self::parties($docId, $internalTypeId);
 
-                    self::parties($data['parties'], $docId);
+                    self::attributes($docId,$internalTypeId);
 
-                    self::attributes($data['attributes'], $docId);
+                    self::tags($docId,$internalTypeId);
 
-                    self::tags($data['tags'], $docId);
+                    self::$data['lifecycle_status'] = 'imported';
+                    unset(self::$data['document_type_id']);
+                    unset(self::$data['document_subtype_id']);
+                    unset(self::$data['lifecycle_status_id']);
+                    unset(self::$data['review_status_id']);
+                    unset(self::$data['text_source_id']);
+                    unset(self::$data['text_category_id']);
+                    unset(self::$data['file_id']);
+                    \App\Helper\ReadWrite::writeJsonData($normalizedFile, self::$data);
 
-                    $data['lifecycle_status'] = 'imported';
-                    file_put_contents($normalizedFile, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
-
-                    $_result = 'succesfully processed file';
+                    $_result = 'Success';
                 }
 
             }
         } catch (\Exception $e) {
             \App\Application\Logger::$logger->error("Fehler beim Verarbeiten der Datei: " . $e->getMessage());
-            $_result .= 'Error processing file';
+            self::$data['lifecycle_status'] = 'failed';
+            self::$data['message'] = $e->getMessage();
+            \App\Helper\ReadWrite::writeJsonData($normalizedFile, self::$data);
+            $_result .= 'Error';
         }
 
         return $_result;
     }
+        
 
-    private static function tags($tags, $docId)
+    private static function tags($docId, $internalTypeId)
     {
-        foreach ($tags as $tag) {
-            $tagId = self::getSetWithId('misc_tags', $tag);
+        foreach (self::$data['tags'] as $tag) {            
+            $tagId = \App\Helper\Database::getSetWithId('misc_tags', $tag, $internalTypeId);
             \App\Application\Database::$db->insert('doc_links_tags', [
                 'doc_documents_id' => $docId,
                 'misc_tags_id' => $tagId
@@ -111,83 +120,87 @@ class AddDocumentController
         }
     }
 
-    private static function attributes($attributes, $docId)
+    private static function attributes($docId, $internalTypeId)
     {
-        foreach ($attributes as $attributeKey => $attributeValue) {
-            \App\Application\Database::$db->insert('doc_attributes', [
+        foreach (self::$data['attributes'] as $attributeKey => $attributeValue) {
+            $attributeId = \App\Helper\Database::getSetWithId('misc_attributes', $attributeKey, $internalTypeId);
+            \App\Application\Database::$db->insert('doc_links_attributes', [
                 'doc_documents_id' => $docId,
-                'name' => $attributeKey,
+                'misc_attributes_id' => $attributeId,
                 'value' => $attributeValue
             ]);
         }
     }
-    private static function parties($parties, $docId)
+    private static function parties($docId,$internalTypeId)
     {
-        foreach ($parties as $party) {
-            $partyId = self::getSetWithId('con_contacts', $party['name']);
+        foreach (self::$data['parties'] as $party) {
+            $partyId = \App\Helper\Database::getSetWithId('con_contacts', $party['name']);
+            $roleId = \App\Helper\Database::getSetWithId('misc_roles', $party['role'],$internalTypeId);
 
             \App\Application\Database::$db->insert('doc_links_parties', [
                 'doc_documents_id' => $docId,
                 'con_contacts_id' => $partyId,
-                'role' => $party['role']
+                'misc_role_id' => $roleId
             ]);
         }
     }
-    private static function issuer($issuerName, $docId)
+    private static function issuer($docId)
     {
-        $issuerId = self::getSetWithId('con_contacts', $issuerName);
+        $issuerId = \App\Helper\Database::getSetWithId('con_contacts', self::$data['issuer']['name']);
         \App\Application\Database::$db->insert('doc_links_issuer', [
             'doc_documents_id' => $docId,
             'con_contacts_id' => $issuerId
         ]);
     }
 
-    private static function dates($dates, $docId)
+    private static function dates($docId, $internalTypeId)
     {
-        foreach ($dates as $dateKey => $dateValue) {
-            \App\Application\Database::$db->insert('doc_dates', [
+        foreach (self::$data['dates'] as $dateKey => $dateValue) {
+            $docDatesId = \App\Helper\Database::getSetWithId('misc_dates', $dateKey, $internalTypeId);
+
+            \App\Application\Database::$db->insert('doc_links_dates', [
                 'doc_documents_id' => $docId,
-                'date_type' => $dateKey,
-                'date_value' => (new \DateTime($dateValue))->format('Y-m-d')
+                'misc_dates_id' => $docDatesId,
+                'value' => (new \DateTime($dateValue))->format('Y-m-d')
             ]);
         }
     }
 
-    private static function createDocument($data)
+    private static function createDocument()
     {
         \App\Application\Database::$db->insert('doc_documents', [
-            'schema_version' => $data['schema_version'] ?? 1,
-            'document_version' => $data['document_version'] ?? 1,
-            'doc_types_id' => $data['document_type_id'] ?? null,
-            'doc_subtypes_id' => $data['document_subtype_id'] ?? null,
-            'doc_lifecycle_statuses_id' => $data['lifecycle_status_id'] ?? null,
-            'doc_review_statuses_id' => $data['review_status_id'] ?? null,
-            'title' => $data['title'] ?? null,
+            'schema_version' => self::$data['schema_version'] ?? 1,
+            'document_version' => self::$data['document_version'] ?? 1,
+            'misc_categories_id' => self::$data['text_category_id'] ?? null,
+            'misc_types_id' => self::$data['document_type_id'] ?? null,
+            'misc_subtypes_id' => self::$data['document_subtype_id'] ?? null,
+            'misc_lifecycle_statuses_id' => self::$data['lifecycle_status_id'] ?? null,
+            'misc_review_statuses_id' => self::$data['review_status_id'] ?? null,
+            'title' => self::$data['title'] ?? null,
             'description' => null,
-            'doc_text_sources_id' => $data['text_source_id'] ?? null,
-            'text_content_hash' => $data['text']['content_hash'] ?? null,
+            'misc_text_sources_id' => self::$data['text_source_id'] ?? null,
+            'text_content_hash' => self::$data['text']['content_hash'] ?? null,
             'text_has_text' => 1,
-            'created_at' => (new \DateTime($data['audit']['created_at']))->format('Y-m-d H:i:s'),
-            'updated_at' => (new \DateTime($data['audit']['updated_at']))->format('Y-m-d H:i:s'),
-            'imported_from' => $data['audit']['imported_from'] ?? null,
-            'fil_files_id' => $data['file_id'] ?? null
+            'created_at' => (new \DateTime(self::$data['audit']['created_at']))->format('Y-m-d H:i:s'),
+            'updated_at' => (new \DateTime(self::$data['audit']['updated_at']))->format('Y-m-d H:i:s'),
+            'imported_from' => self::$data['audit']['imported_from'] ?? null,
+            'fil_files_id' => self::$data['file_id'] ?? null
         ]);
         return \App\Application\Database::$db->lastInsertId();
 
     }
 
-    private static function processFile($normalizedFile, $title, $filename, $path, $mimetype)
+    private static function processFile($normalizedFile)
     {
-        $isExisting = self::isExisting($title, $filename, $path);
+        $isExisting = self::isExisting(self::$data['title'], self::$data['files'][0]['filename'], self::$data['files'][0]['path']);
         if ($isExisting) {
-            $data['lifecycle_status'] = 'imported';
-            file_put_contents($normalizedFile, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+            self::$data['lifecycle_status'] = 'imported';
+            \App\Helper\ReadWrite::writeJsonData($normalizedFile, self::$data);
             return ['type' => 'exists', 'message' => 'document already exists in database and physically'];
         }
 
-        // Datei erstellen und mit Dokument verlinken ================================================================
-        $mimeTypeId = self::getSetWithId('fil_mime_types', $mimetype);
-        $data['file_id'] = null;
+        $mimeTypeId = \App\Helper\Database::getSetWithId('fil_mime_types', self::$data['files'][0]['mime_type']);
+        self::$data['file_id'] = null;
 
         $queryResult = \App\Application\Database::$db->createQueryBuilder()
             ->select('id')
@@ -195,20 +208,20 @@ class AddDocumentController
             ->where('filename = :filename')
             ->andWhere('path = :path')
             ->andWhere('fil_mime_types_id = :mime_type_id')
-            ->setParameters(['filename' => $filename, 'path' => $path, 'mime_type_id' => $mimeTypeId])
+            ->setParameters(['filename' => self::$data['files'][0]['filename'], 'path' => self::$data['files'][0]['path'], 'mime_type_id' => $mimeTypeId])
             ->executeQuery()
             ->fetchOne();
 
         if (!$queryResult) {
-            \App\Application\Logger::$logger->info("Datei nicht gefunden: " . $filename . ' in Datei ' . $normalizedFile . '. Datei wird angelegt.');
+            \App\Application\Logger::$logger->info("File not found: " . self::$data['files'][0]['filename'] . ' in file ' . $normalizedFile . '. File will be created.');
             \App\Application\Database::$db->insert('fil_files', [
-                'filename' => $filename,
-                'path' => $path,
+                'filename' => self::$data['files'][0]['filename'],
+                'path' => self::$data['files'][0]['path'],
                 'fil_mime_types_id' => (int) $mimeTypeId,
             ]);
             return ['type' => 'id', 'id' => \App\Application\Database::$db->lastInsertId()];
         } else {
-            \App\Application\Logger::$logger->info("Datei bereits vorhanden: " . $filename . ' in Datei ' . $normalizedFile . '.');
+            \App\Application\Logger::$logger->info("Datei bereits vorhanden: " . self::$data['files'][0]['filename'] . ' in Datei ' . $normalizedFile . '.');
             return ['type' => 'id', 'id' => $queryResult];
         }
     }
@@ -247,33 +260,9 @@ class AddDocumentController
 
     private static function normalizeFile($document): string
     {
-        $targetDirectory = \App\Application\Configuration::get('app_base_path') . DIRECTORY_SEPARATOR . 'data/documents' . DIRECTORY_SEPARATOR;
+        $targetDirectory = \App\Application\Configuration::$data_path . DIRECTORY_SEPARATOR . 'documents' . DIRECTORY_SEPARATOR;
         $file = $targetDirectory . $document;
 
         return realpath($file);
-    }
-    private static function getId($table, $parameterValue)
-    {
-        $result = \App\Application\Database::$db->createQueryBuilder()
-            ->select('id')
-            ->from($table)
-            ->where('name = :name')
-            ->setParameter('name', $parameterValue)
-            ->executeQuery()
-            ->fetchOne();
-
-        return $result;
-    }
-
-    private static function getSetWithId($table, $parameterValue)
-    {
-        $result = self::getId($table, $parameterValue);
-
-        if (!$result) {
-            \App\Application\Database::$db->insert($table, ['name' => $parameterValue]);
-            $result = \App\Application\Database::$db->lastInsertId();
-        }
-
-        return $result;
-    }
+    }    
 }

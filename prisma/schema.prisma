@@ -1,0 +1,326 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+model con_contacts {
+  id                Int                 @id @default(autoincrement())
+  name              String              @db.VarChar(255)
+  created_at        DateTime            @default(now()) @db.DateTime(0)
+  updated_at        DateTime            @default(dbgenerated("('0000-00-00 00:00:00')")) @db.DateTime(0)
+  active            Boolean             @default(true)
+  doc_links_issuer  doc_links_issuer[]
+  doc_links_parties doc_links_parties[]
+}
+
+model doc_documents {
+  id                                                    Int                     @id @default(autoincrement())
+  schema_version                                        Int                     @db.TinyInt
+  document_version                                      Int                     @db.TinyInt
+  title                                                 String                  @db.VarChar(255)
+  description                                           String?                 @db.Text
+  misc_categories_id                                    Int
+  misc_types_id                                         Int
+  misc_subtypes_id                                      Int
+  misc_lifecycle_statuses_id                            Int
+  misc_review_statuses_id                               Int
+  misc_text_sources_id                                  Int
+  text_has_text                                         Boolean
+  text_content_hash                                     String                  @db.VarChar(255)
+  created_at                                            DateTime                @db.DateTime(0)
+  updated_at                                            DateTime                @default(now()) @db.DateTime(0)
+  active                                                Boolean                 @default(true)
+  imported_from                                         String                  @db.VarChar(255)
+  fil_files_id                                          Int?
+  misc_lifecycle_statuses                               misc_lifecycle_statuses @relation(fields: [misc_lifecycle_statuses_id], references: [id], onUpdate: Restrict, map: "fk_doc_lifecycle_statuses_id")
+  misc_review_statuses                                  misc_review_statuses    @relation(fields: [misc_review_statuses_id], references: [id], onUpdate: Restrict, map: "fk_doc_review_statuses_id")
+  misc_types_doc_documents_misc_subtypes_idTomisc_types misc_types              @relation("doc_documents_misc_subtypes_idTomisc_types", fields: [misc_subtypes_id], references: [id], onUpdate: Restrict, map: "fk_doc_subtypes_id")
+  misc_text_sources                                     misc_text_sources       @relation(fields: [misc_text_sources_id], references: [id], onUpdate: Restrict, map: "fk_doc_text_sources_id")
+  misc_types_doc_documents_misc_types_idTomisc_types    misc_types              @relation("doc_documents_misc_types_idTomisc_types", fields: [misc_types_id], references: [id], onUpdate: Restrict, map: "fk_doc_types_id")
+  fil_files                                             fil_files?              @relation(fields: [fil_files_id], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fk_fil_files_id")
+  misc_categories                                       misc_categories         @relation(fields: [misc_categories_id], references: [id], onUpdate: Restrict, map: "fk_misc_categories_id")
+  doc_last_documents                                    doc_last_documents[]
+  doc_links_issuer                                      doc_links_issuer[]
+  doc_links_parties                                     doc_links_parties[]
+  doc_links_tags                                        doc_links_tags[]
+
+  @@index([fil_files_id], map: "fk_fil_files_id")
+  @@index([misc_categories_id], map: "fk_misc_categories_id")
+  @@index([misc_lifecycle_statuses_id], map: "fk_misc_lifecycle_statuses_id")
+  @@index([misc_review_statuses_id], map: "fk_misc_review_statuses_id")
+  @@index([misc_subtypes_id], map: "fk_misc_subtypes_id")
+  @@index([misc_text_sources_id], map: "fk_misc_text_sources_id")
+  @@index([misc_types_id], map: "fk_misc_types_id")
+}
+
+model doc_last_documents {
+  id               Int           @id @default(autoincrement())
+  doc_documents_id Int
+  opened_when      DateTime      @default(now()) @db.DateTime(0)
+  doc_documents    doc_documents @relation(fields: [doc_documents_id, doc_documents_id, doc_documents_id, doc_documents_id], references: [id, id, id, id], onUpdate: Restrict, map: "fk_doc_documents_id")
+
+  @@index([doc_documents_id], map: "fk_doc_documents_id")
+}
+
+model doc_links_attributes {
+  id                 Int      @id @default(autoincrement())
+  doc_documents_id   Int
+  misc_attributes_id Int
+  value              String   @db.VarChar(255)
+  created_at         DateTime @default(now()) @db.DateTime(0)
+  updated_at         DateTime @default(now()) @db.DateTime(0)
+  active             Boolean  @default(true)
+}
+
+model doc_links_dates {
+  id               Int      @id @default(autoincrement())
+  doc_documents_id Int
+  misc_dates_id    Int
+  value            String   @db.VarChar(255)
+  created_at       DateTime @default(now()) @db.DateTime(0)
+  updated_at       DateTime @default(now()) @db.DateTime(0)
+  active           Boolean  @default(true)
+}
+
+model doc_links_issuer {
+  id               Int           @id @default(autoincrement())
+  con_contacts_id  Int
+  doc_documents_id Int
+  created_at       DateTime      @default(now()) @db.DateTime(0)
+  updated_at       DateTime      @default(now()) @db.DateTime(0)
+  active           Boolean       @default(true)
+  con_contacts     con_contacts  @relation(fields: [con_contacts_id, con_contacts_id], references: [id, id], onUpdate: Restrict, map: "fk_con_contacts_id")
+  doc_documents    doc_documents @relation(fields: [doc_documents_id, doc_documents_id, doc_documents_id, doc_documents_id], references: [id, id, id, id], onUpdate: Restrict, map: "fk_doc_documents_id")
+
+  @@index([con_contacts_id], map: "fk_con_contacts_id")
+  @@index([doc_documents_id], map: "fk_doc_documents_id")
+}
+
+model doc_links_parties {
+  id               Int           @id @default(autoincrement())
+  doc_documents_id Int
+  con_contacts_id  Int
+  misc_role_id     Int
+  created_at       DateTime      @default(now()) @db.DateTime(0)
+  updated_at       DateTime      @default(now()) @db.DateTime(0)
+  active           Boolean       @default(true)
+  con_contacts     con_contacts  @relation(fields: [con_contacts_id, con_contacts_id], references: [id, id], onUpdate: Restrict, map: "fk_con_contacts_id")
+  doc_documents    doc_documents @relation(fields: [doc_documents_id, doc_documents_id, doc_documents_id, doc_documents_id], references: [id, id, id, id], onUpdate: Restrict, map: "fk_doc_documents_id")
+  misc_roles       misc_roles    @relation(fields: [misc_role_id], references: [id], onUpdate: Restrict, map: "fk_misc_role_id")
+
+  @@index([con_contacts_id], map: "fk_con_contacts_id")
+  @@index([doc_documents_id], map: "fk_doc_documents_id")
+  @@index([misc_role_id], map: "fk_misc_role_id")
+}
+
+model doc_links_tags {
+  id               Int           @id @default(autoincrement())
+  misc_tags_id     Int
+  doc_documents_id Int
+  created_at       DateTime      @default(now()) @db.DateTime(0)
+  updated_at       DateTime      @default(now()) @db.DateTime(0)
+  active           Boolean       @default(true)
+  doc_documents    doc_documents @relation(fields: [doc_documents_id, doc_documents_id, doc_documents_id, doc_documents_id], references: [id, id, id, id], onUpdate: Restrict, map: "fk_doc_documents_id")
+  misc_tags        misc_tags     @relation(fields: [misc_tags_id], references: [id], onUpdate: Restrict, map: "fk_misc_tags_id")
+
+  @@index([doc_documents_id], map: "fk_doc_documents_id")
+  @@index([misc_tags_id], map: "fk_misc_tags_id")
+}
+
+model fil_files {
+  id                Int             @id @default(autoincrement())
+  version           Int             @default(1) @db.TinyInt
+  path              String          @db.VarChar(255)
+  filename          String          @db.VarChar(255)
+  description       String?         @db.Text
+  fil_mime_types_id Int
+  sha256            String?         @db.VarChar(255)
+  size_bytes        Int?
+  created_at        DateTime        @default(now()) @db.DateTime(0)
+  updated_at        DateTime        @default(now()) @db.DateTime(0)
+  active            Boolean         @default(true)
+  doc_documents     doc_documents[]
+  fil_mime_types    fil_mime_types  @relation(fields: [fil_mime_types_id], references: [id], onUpdate: Restrict, map: "fk_fil_mime_types_id")
+
+  @@index([fil_mime_types_id], map: "fk_fil_mime_types_id")
+}
+
+model fil_mime_types {
+  id          Int         @id @default(autoincrement())
+  name        String      @db.VarChar(255)
+  common_name String?     @db.VarChar(100)
+  description String?     @db.Text
+  created_at  DateTime    @default(now()) @db.DateTime(0)
+  updated_at  DateTime    @default(now()) @db.DateTime(0)
+  active      Boolean     @default(true)
+  fil_files   fil_files[]
+}
+
+model misc_attributes {
+  id                     Int                  @id @default(autoincrement())
+  name                   String               @db.VarChar(255)
+  description            String?              @db.TinyText
+  misc_internal_types_id Int?
+  created_at             DateTime             @default(now()) @db.DateTime(0)
+  updated_at             DateTime             @default(now()) @db.DateTime(0)
+  active                 Boolean              @default(true)
+  misc_internal_types    misc_internal_types? @relation(fields: [misc_internal_types_id, misc_internal_types_id, misc_internal_types_id, misc_internal_types_id, misc_internal_types_id, misc_internal_types_id, misc_internal_types_id, misc_internal_types_id, misc_internal_types_id], references: [id, id, id, id, id, id, id, id, id], onDelete: Restrict, onUpdate: Restrict, map: "fk_misc_internal_type")
+
+  @@index([misc_internal_types_id], map: "fk_misc_internal_type")
+}
+
+model misc_categories {
+  id                     Int                  @id @default(autoincrement())
+  name                   String               @db.VarChar(255)
+  description            String?              @db.TinyText
+  misc_internal_types_id Int?
+  created_at             DateTime             @default(now()) @db.DateTime(0)
+  updated_at             DateTime             @default(now()) @db.DateTime(0)
+  active                 Boolean              @default(true)
+  doc_documents          doc_documents[]
+  misc_internal_types    misc_internal_types? @relation(fields: [misc_internal_types_id, misc_internal_types_id, misc_internal_types_id, misc_internal_types_id, misc_internal_types_id, misc_internal_types_id, misc_internal_types_id, misc_internal_types_id, misc_internal_types_id], references: [id, id, id, id, id, id, id, id, id], onDelete: Restrict, onUpdate: Restrict, map: "fk_misc_internal_type")
+
+  @@index([misc_internal_types_id], map: "fk_misc_internal_type")
+}
+
+model misc_dates {
+  id                     Int                  @id @default(autoincrement())
+  name                   String               @db.VarChar(100)
+  description            String?              @db.TinyText
+  misc_internal_types_id Int?
+  created_at             DateTime             @default(now()) @db.DateTime(0)
+  updated_at             DateTime             @default(now()) @db.DateTime(0)
+  active                 Boolean              @default(true)
+  misc_internal_types    misc_internal_types? @relation(fields: [misc_internal_types_id, misc_internal_types_id, misc_internal_types_id, misc_internal_types_id, misc_internal_types_id, misc_internal_types_id, misc_internal_types_id, misc_internal_types_id, misc_internal_types_id], references: [id, id, id, id, id, id, id, id, id], onDelete: Restrict, onUpdate: Restrict, map: "fk_misc_internal_type")
+
+  @@index([misc_internal_types_id], map: "fk_misc_internal_type")
+}
+
+model misc_internal_types {
+  id                      Int                       @id @default(autoincrement())
+  name                    String                    @db.VarChar(255)
+  description             String?                   @db.TinyText
+  created_at              DateTime                  @default(now()) @db.DateTime(0)
+  updated_at              DateTime                  @default(now()) @db.DateTime(0)
+  active                  Boolean                   @default(true)
+  misc_attributes         misc_attributes[]
+  misc_categories         misc_categories[]
+  misc_dates              misc_dates[]
+  misc_lifecycle_statuses misc_lifecycle_statuses[]
+  misc_review_statuses    misc_review_statuses[]
+  misc_roles              misc_roles[]
+  misc_tags               misc_tags[]
+  misc_text_sources       misc_text_sources[]
+  misc_types              misc_types[]
+}
+
+model misc_lifecycle_statuses {
+  id                     Int                  @id @default(autoincrement())
+  name                   String               @db.VarChar(255)
+  description            String?              @db.TinyText
+  misc_internal_types_id Int?
+  created_at             DateTime             @default(now()) @db.DateTime(0)
+  updated_at             DateTime             @default(now()) @db.DateTime(0)
+  active                 Boolean              @default(true)
+  doc_documents          doc_documents[]
+  misc_internal_types    misc_internal_types? @relation(fields: [misc_internal_types_id, misc_internal_types_id, misc_internal_types_id, misc_internal_types_id, misc_internal_types_id, misc_internal_types_id, misc_internal_types_id, misc_internal_types_id, misc_internal_types_id], references: [id, id, id, id, id, id, id, id, id], onDelete: Restrict, onUpdate: Restrict, map: "fk_misc_internal_type")
+
+  @@index([misc_internal_types_id], map: "fk_misc_internal_type")
+}
+
+model misc_review_statuses {
+  id                     Int                  @id @default(autoincrement())
+  name                   String               @db.VarChar(255)
+  description            String?              @db.TinyText
+  misc_internal_types_id Int?
+  created_at             DateTime             @default(now()) @db.DateTime(0)
+  updated_at             DateTime             @default(now()) @db.DateTime(0)
+  active                 Boolean              @default(true)
+  doc_documents          doc_documents[]
+  misc_internal_types    misc_internal_types? @relation(fields: [misc_internal_types_id, misc_internal_types_id, misc_internal_types_id, misc_internal_types_id, misc_internal_types_id, misc_internal_types_id, misc_internal_types_id, misc_internal_types_id, misc_internal_types_id], references: [id, id, id, id, id, id, id, id, id], onDelete: Restrict, onUpdate: Restrict, map: "fk_misc_internal_type")
+
+  @@index([misc_internal_types_id], map: "fk_misc_internal_type")
+}
+
+model misc_roles {
+  id                     Int                 @id @default(autoincrement())
+  name                   String              @db.VarChar(255)
+  description            String?             @db.TinyText
+  misc_internal_types_id Int
+  created_at             DateTime            @default(now()) @db.DateTime(0)
+  updated_at             DateTime            @default(now()) @db.DateTime(0)
+  active                 Boolean             @default(true)
+  doc_links_parties      doc_links_parties[]
+  misc_internal_types    misc_internal_types @relation(fields: [misc_internal_types_id, misc_internal_types_id, misc_internal_types_id, misc_internal_types_id, misc_internal_types_id, misc_internal_types_id, misc_internal_types_id, misc_internal_types_id, misc_internal_types_id], references: [id, id, id, id, id, id, id, id, id], onUpdate: Restrict, map: "fk_misc_internal_type")
+
+  @@index([misc_internal_types_id], map: "fk_misc_internal_type")
+}
+
+model misc_tags {
+  id                     Int                  @id @default(autoincrement())
+  name                   String               @db.VarChar(255)
+  description            String?              @db.TinyText
+  misc_internal_types_id Int?
+  created_at             DateTime             @default(now()) @db.DateTime(0)
+  updated_at             DateTime             @default(now()) @db.DateTime(0)
+  active                 Boolean              @default(true)
+  doc_links_tags         doc_links_tags[]
+  misc_internal_types    misc_internal_types? @relation(fields: [misc_internal_types_id, misc_internal_types_id, misc_internal_types_id, misc_internal_types_id, misc_internal_types_id, misc_internal_types_id, misc_internal_types_id, misc_internal_types_id, misc_internal_types_id], references: [id, id, id, id, id, id, id, id, id], onDelete: Restrict, onUpdate: Restrict, map: "fk_misc_internal_type")
+
+  @@index([misc_internal_types_id], map: "fk_misc_internal_type")
+}
+
+model misc_text_sources {
+  id                     Int                  @id @default(autoincrement())
+  name                   String               @db.VarChar(255)
+  description            String?              @db.TinyText
+  misc_internal_types_id Int?
+  created_at             DateTime             @default(now()) @db.DateTime(0)
+  updated_at             DateTime             @default(now()) @db.DateTime(0)
+  active                 Boolean              @default(true)
+  doc_documents          doc_documents[]
+  misc_internal_types    misc_internal_types? @relation(fields: [misc_internal_types_id, misc_internal_types_id, misc_internal_types_id, misc_internal_types_id, misc_internal_types_id, misc_internal_types_id, misc_internal_types_id, misc_internal_types_id, misc_internal_types_id], references: [id, id, id, id, id, id, id, id, id], onDelete: Restrict, onUpdate: Restrict, map: "fk_misc_internal_type")
+
+  @@index([misc_internal_types_id], map: "fk_misc_internal_type")
+}
+
+model misc_types {
+  id                                                       Int                  @id @default(autoincrement())
+  name                                                     String               @db.VarChar(255)
+  description                                              String?              @db.TinyText
+  misc_internal_types_id                                   Int?
+  created_at                                               DateTime             @default(now()) @db.DateTime(0)
+  updated_at                                               DateTime             @default(now()) @db.DateTime(0)
+  active                                                   Boolean              @default(true)
+  doc_documents_doc_documents_misc_subtypes_idTomisc_types doc_documents[]      @relation("doc_documents_misc_subtypes_idTomisc_types")
+  doc_documents_doc_documents_misc_types_idTomisc_types    doc_documents[]      @relation("doc_documents_misc_types_idTomisc_types")
+  misc_internal_types                                      misc_internal_types? @relation(fields: [misc_internal_types_id, misc_internal_types_id, misc_internal_types_id, misc_internal_types_id, misc_internal_types_id, misc_internal_types_id, misc_internal_types_id, misc_internal_types_id, misc_internal_types_id], references: [id, id, id, id, id, id, id, id, id], onDelete: Restrict, onUpdate: Restrict, map: "fk_misc_internal_type")
+
+  @@index([misc_internal_types_id], map: "fk_misc_internal_type")
+}
+
+model refresh_tokens {
+  id         Int       @id @default(autoincrement())
+  user_id    Int
+  token      String    @unique(map: "token") @db.VarChar(255)
+  expires_at DateTime  @db.Timestamp(0)
+  created_at DateTime? @default(now()) @db.Timestamp(0)
+  users      users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "1")
+
+  @@index([user_id], map: "user_id")
+}
+
+model users {
+  id             Int              @id @default(autoincrement())
+  name           String           @db.VarChar(255)
+  email          String           @unique(map: "email") @db.VarChar(255)
+  password       String           @db.VarChar(255)
+  role           String?          @default("user") @db.VarChar(50)
+  created_at     DateTime?        @default(now()) @db.Timestamp(0)
+  updated_at     DateTime         @default(now()) @db.DateTime(0)
+  active         Boolean          @default(true)
+  refresh_tokens refresh_tokens[]
+}

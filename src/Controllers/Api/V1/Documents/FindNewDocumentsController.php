@@ -37,7 +37,8 @@ class FindNewDocumentsController
                         $documents[] = [
                             'file_name' => $fileInfo->getFilename(),
                             'relative_path' => $relativePath,
-                            'title' => $data['title']
+                            'title' => $data['title'],
+                            'checked'=> false
                         ];
                     }
 
