@@ -71,7 +71,7 @@ Für den späteren Wechsel auf MariaDB `DB_CONNECTION=mariadb` sowie `DB_HOST`, 
 
 `codesquirrel/artisan-runner-ui` ist installiert. Die Konfiguration liegt in `config/artisan-runner-ui.php`. Lokal ist die UI aktiviert. Neue Checkouts starten mit `ARTISAN_RUNNER_UI_ENABLED=false`; zum Aktivieren den Wert in `.env` auf `true` setzen und `php artisan config:clear` ausführen.
 
-Die Oberfläche liegt unter `/artisan-runner-ui`. Anmeldung: `/login`; Konto und Abmeldung: `/runner`. Die Middleware `web`, `auth:web` und `can:run-artisan-runner-ui` schützt sowohl die Oberfläche als auch die Befehlsausführung. Die Paketkonfiguration erlaubt ausschließlich die Umgebungen `local`, `qa`, `staging` und `uat`.
+Die Oberfläche liegt unter `/artisan`. Anmeldung: `/artisan/login`; Konto und Abmeldung: `/artisan/account`. Die Middleware `web`, `auth:web` und `can:run-artisan-runner-ui` schützt sowohl die Oberfläche als auch die Befehlsausführung. Die Paketkonfiguration erlaubt ausschließlich die Umgebungen `local`, `qa`, `staging` und `uat`.
 
 Die Listen `allowed` und `denied` steuern verfügbare Befehle. Die Oberfläche benötigt keinen Frontend-Build und keine zusätzliche Migration. Die veröffentlichte Blade-Ansicht enthält einen Link zum Konto; bei Paketupdates Änderungen an der Originalansicht prüfen.
 
@@ -111,7 +111,7 @@ Der Befehl entfernt Aufzeichnungen, die älter als 48 Stunden sind. Eine automat
 
 ## Filament Admin-Panel
 
-Filament 5 ist unter `http://127.0.0.1:8000/admin` erreichbar, Anmeldung unter `/admin/login`. Panel-Konfiguration: `app/Providers/Filament/AdminPanelProvider.php`. Das Panel nutzt den vorhandenen `web`-Guard und benötigt in jeder Umgebung die Spatie-Berechtigung `access-admin-panel`.
+Filament 5 ist unter `http://127.0.0.1:8000/filament` erreichbar, Anmeldung unter `/filament/login`. Panel-Konfiguration: `app/Providers/Filament/AdminPanelProvider.php`. Das Panel nutzt den vorhandenen `web`-Guard und benötigt in jeder Umgebung die Spatie-Berechtigung `access-admin-panel`.
 
 Ein Konto lokal interaktiv anlegen und anschließend gezielt freischalten:
 

@@ -54,7 +54,7 @@ class CreateRunnerUser extends Command
             $user->givePermissionTo($permission);
         });
 
-        $this->info('Benutzer mit Runner-Zugriff wurde erstellt. Anmeldung unter /login.');
+        $this->info('Benutzer mit Runner-Zugriff wurde erstellt. Anmeldung unter /artisan/login.');
 
         return self::SUCCESS;
     }

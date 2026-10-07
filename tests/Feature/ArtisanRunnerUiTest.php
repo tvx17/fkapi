@@ -14,17 +14,17 @@ class ArtisanRunnerUiTest extends TestCase
 
     public function test_runner_routes_are_unavailable_by_default(): void
     {
-        $this->get('/artisan-runner-ui')->assertNotFound();
-        $this->postJson('/artisan-runner-ui/run', ['command' => 'about'])->assertNotFound();
+        $this->get('/artisan')->assertNotFound();
+        $this->postJson('/artisan/run', ['command' => 'about'])->assertNotFound();
     }
 
     public function test_enabled_runner_requires_authentication(): void
     {
         $this->enableRunnerForTesting();
 
-        $this->getJson('/artisan-runner-ui')->assertUnauthorized();
-        $this->postJson('/artisan-runner-ui/run', ['command' => 'about'])->assertUnauthorized();
-        $this->get('/artisan-runner-ui')->assertRedirect(route('login'));
+        $this->getJson('/artisan')->assertUnauthorized();
+        $this->postJson('/artisan/run', ['command' => 'about'])->assertUnauthorized();
+        $this->get('/artisan')->assertRedirect(route('login'));
     }
 
     public function test_authenticated_user_can_view_ui_and_run_an_allowed_command(): void
@@ -35,13 +35,13 @@ class ArtisanRunnerUiTest extends TestCase
         $user->givePermissionTo(Permission::findOrCreate('run-artisan-runner-ui', 'web'));
         $this->actingAs($user);
 
-        $this->get('/artisan-runner-ui')->assertOk()->assertViewIs('artisan-runner-ui::index');
-        $this->postJson('/artisan-runner-ui/run', ['command' => 'about'])
+        $this->get('/artisan')->assertOk()->assertViewIs('artisan-runner-ui::index');
+        $this->postJson('/artisan/run', ['command' => 'about'])
             ->assertOk()
             ->assertJsonPath('exit_code', 0)
             ->assertJsonStructure(['output']);
-        $this->postJson('/artisan-runner-ui/run', ['command' => 'db:wipe'])->assertForbidden();
-        $this->postJson('/artisan-runner-ui/run', ['command' => 'admin:grant-access', 'parameters' => ['email' => $user->email]])
+        $this->postJson('/artisan/run', ['command' => 'db:wipe'])->assertForbidden();
+        $this->postJson('/artisan/run', ['command' => 'admin:grant-access', 'parameters' => ['email' => $user->email]])
             ->assertForbidden();
     }
 
@@ -50,8 +50,8 @@ class ArtisanRunnerUiTest extends TestCase
         $this->enableRunnerForTesting();
         $this->actingAs(User::factory()->create());
 
-        $this->getJson('/artisan-runner-ui')->assertForbidden();
-        $this->postJson('/artisan-runner-ui/run', ['command' => 'about'])->assertForbidden();
+        $this->getJson('/artisan')->assertForbidden();
+        $this->postJson('/artisan/run', ['command' => 'about'])->assertForbidden();
     }
 
     public function test_revoking_permission_blocks_further_command_execution(): void
@@ -61,11 +61,11 @@ class ArtisanRunnerUiTest extends TestCase
         $user = User::factory()->create();
         $user->givePermissionTo($permission);
         $this->actingAs($user);
-        $this->getJson('/artisan-runner-ui')->assertOk();
+        $this->getJson('/artisan')->assertOk();
 
         $user->revokePermissionTo($permission);
 
-        $this->postJson('/artisan-runner-ui/run', ['command' => 'about'])->assertForbidden();
+        $this->postJson('/artisan/run', ['command' => 'about'])->assertForbidden();
     }
 
     public function test_runner_is_unavailable_in_production_even_when_enabled(): void
@@ -73,8 +73,8 @@ class ArtisanRunnerUiTest extends TestCase
         $this->enableRunnerForTesting();
         $this->app->instance('env', 'production');
 
-        $this->getJson('/artisan-runner-ui')->assertNotFound();
-        $this->postJson('/artisan-runner-ui/run', ['command' => 'about'])->assertNotFound();
+        $this->getJson('/artisan')->assertNotFound();
+        $this->postJson('/artisan/run', ['command' => 'about'])->assertNotFound();
     }
 
     public function test_runner_execution_requires_a_valid_csrf_token(): void
@@ -86,9 +86,9 @@ class ArtisanRunnerUiTest extends TestCase
         $user->givePermissionTo(Permission::findOrCreate('run-artisan-runner-ui', 'web'));
         $this->actingAs($user);
 
-        $this->postJson('/artisan-runner-ui/run', ['command' => 'about'])->assertStatus(419);
+        $this->postJson('/artisan/run', ['command' => 'about'])->assertStatus(419);
         $this->withSession(['_token' => 'test-csrf-token'])
-            ->postJson('/artisan-runner-ui/run', [
+            ->postJson('/artisan/run', [
                 'command' => 'about',
                 '_token' => 'test-csrf-token',
             ])

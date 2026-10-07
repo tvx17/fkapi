@@ -27,7 +27,7 @@ class GrantAdminAccess extends Command
             $user->givePermissionTo(Permission::findOrCreate('access-admin-panel', 'web'));
         });
 
-        $this->info('Admin-Zugriff erteilt. Anmeldung unter /admin/login.');
+        $this->info('Admin-Zugriff erteilt. Anmeldung unter /filament/login.');
 
         return self::SUCCESS;
     }

@@ -13,8 +13,8 @@ class FilamentTest extends TestCase
 
     public function test_guests_are_redirected_to_the_admin_login(): void
     {
-        $this->get('/admin')->assertRedirect('/admin/login');
-        $this->get('/admin/login')->assertOk();
+        $this->get('/filament')->assertRedirect('/filament/login');
+        $this->get('/filament/login')->assertOk();
     }
 
     public function test_users_without_admin_permission_are_denied(): void
@@ -22,7 +22,7 @@ class FilamentTest extends TestCase
         $user = User::factory()->create();
         $user->givePermissionTo(Permission::findOrCreate('run-artisan-runner-ui', 'web'));
 
-        $this->actingAs($user)->get('/admin')->assertForbidden();
+        $this->actingAs($user)->get('/filament')->assertForbidden();
     }
 
     public function test_explicit_admin_access_allows_the_dashboard_without_runner_access(): void
@@ -31,7 +31,7 @@ class FilamentTest extends TestCase
 
         $this->artisan('admin:grant-access', ['email' => $user->email])->assertSuccessful();
 
-        $this->actingAs($user->fresh())->get('/admin')->assertOk();
+        $this->actingAs($user->fresh())->get('/filament')->assertOk();
         $this->assertFalse($user->fresh()->checkPermissionTo('run-artisan-runner-ui', 'web'));
     }
 
